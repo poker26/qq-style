@@ -44,10 +44,13 @@ DASH = re.compile(r"[—–]")
 
 
 class Rule:
-    def __init__(self, rid: str, why: str, patterns: list[str], section: str = "") -> None:
+    def __init__(self, rid: str, why: str, patterns: list[str], section: str = "", prose_only: bool = False) -> None:
         self.id = rid
         self.why = why
         self.section = section
+        # prose_only: правило про типографику, действует на md/txt/ipynb, где текст
+        # это текст; в строках Python и HTML лежит встроенный код, там оно шумит.
+        self.prose_only = prose_only
         self.res = [re.compile(p, re.IGNORECASE | re.MULTILINE) for p in patterns]
 
     def hits(self, text: str) -> list[str]:
@@ -60,7 +63,7 @@ class Rule:
 
 def load_rules(path: Path) -> tuple[list[Rule], list[re.Pattern[str]], int]:
     data = tomllib.loads(path.read_text(encoding="utf-8"))
-    rules = [Rule(b["id"], b["why"], b["patterns"], b.get("section", "")) for b in data.get("ban", [])]
+    rules = [Rule(b["id"], b["why"], b["patterns"], b.get("section", ""), b.get("prose_only", False)) for b in data.get("ban", [])]
     allow = [re.compile(p) for p in data.get("dash", {}).get("allow", [])]
     words = int(data.get("thresholds", {}).get("min_words_per_code_cell", 0))
     return rules, allow, words
@@ -68,7 +71,11 @@ def load_rules(path: Path) -> tuple[list[Rule], list[re.Pattern[str]], int]:
 
 def load_glossary(path: Path) -> list[Rule]:
     data = tomllib.loads(path.read_text(encoding="utf-8"))
-    return [Rule(b["id"], b["why"], b["patterns"], "3") for b in data.get("ban", [])]
+    return [Rule(b["id"], b["why"], b["patterns"], "3", b.get("prose_only", False)) for b in data.get("ban", [])]
+
+
+PROSE_SUFFIXES = {".md", ".txt", ".ipynb"}
+JINJA = re.compile(r"\{#.*?#\}|\{%.*?%\}|\{\{.*?\}\}", re.DOTALL)
 
 
 # ─────────────────────────── извлечение текста ───────────────────────────
@@ -113,14 +120,14 @@ class _Text(HTMLParser):
         self.skip = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag in ("script", "style"):
+        if tag in ("script", "style", "pre", "code"):
             self.skip += 1
         for k, v in attrs:
             if k in ("title", "aria-label", "placeholder", "alt") and v:
                 self.parts.append(v)
 
     def handle_endtag(self, tag: str) -> None:
-        if tag in ("script", "style") and self.skip:
+        if tag in ("script", "style", "pre", "code") and self.skip:
             self.skip -= 1
 
     def handle_data(self, data: str) -> None:
@@ -164,7 +171,7 @@ def texts_of(path: Path, docstrings: bool) -> list[tuple[int, str]]:
         return out
     if suf in (".html", ".htm"):
         p = _Text()
-        p.feed(path.read_text(encoding="utf-8", errors="replace"))
+        p.feed(JINJA.sub(" ", path.read_text(encoding="utf-8", errors="replace")))
         return [(0, t) for t in p.parts if re.search(r"[А-Яа-яЁё]", t)]
     return []
 
@@ -239,8 +246,11 @@ def main() -> int:
     by_rule: dict[str, int] = {}
     for f in collect([Path(p) for p in a.paths]):
         found: list[str] = []
+        is_prose = f.suffix.lower() in PROSE_SUFFIXES
         for line_no, text in texts_of(f, a.docstrings):
             for r in active:
+                if r.prose_only and not is_prose:
+                    continue
                 for h in r.hits(text):
                     found.append(f"{f}:{line_no}: [{r.id}] «{h[:60]}» → {r.why}")
                     by_rule[r.id] = by_rule.get(r.id, 0) + 1
