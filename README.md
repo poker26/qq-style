@@ -25,8 +25,14 @@
 
 ## Как пользоваться
 
-**Как скилл Claude Code.** Скопировать каталог в `~/.claude/skills/qq-style/`
-(лично) или в `.claude/skills/qq-style/` проекта. Скилл срабатывает на
+Репозиторий: https://github.com/poker26/qq-style
+
+**Как скилл Claude Code.** Клонировать в `~/.claude/skills/qq-style/`
+(лично) или в `.claude/skills/qq-style/` проекта:
+
+```bash
+git clone https://github.com/poker26/qq-style ~/.claude/skills/qq-style
+``` Скилл срабатывает на
 «проверь на робо-язык», «перепиши по канону» и при написании текстов для
 читателя. В проекте со своим словарём положить рядом `GLOSSARY-<проект>.md` и
 `glossary-<проект>.toml`.
