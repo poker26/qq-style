@@ -22,6 +22,7 @@
 | `PROMPT.md` | сжатая версия для системного промпта любой LLM (собирается) | ChatGPT, Gemini, Kimi, YandexGPT |
 | `build.py` | собирает `SKILL.md` и `PROMPT.md` из шаблонов и `rules.toml` | сопровождение |
 | `examples/` | пары «до / после» | люди и модели |
+| `MESSAGE.md` | готовое письмо агенту другого проекта: вставляется первым сообщением в чат или в AGENTS.md | ChatGPT, Gemini, Kimi, Codex |
 
 ## Как пользоваться
 
